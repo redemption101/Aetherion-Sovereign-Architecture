@@ -13,7 +13,8 @@ import {
   Server,
   Activity,
   UserCheck,
-  UserX
+  UserX,
+  Download
 } from "lucide-react";
 
 export interface AuditLogEntry {
@@ -49,6 +50,53 @@ export default function SecurityAuditLog({ logs, onClearLogs }: SecurityAuditLog
   const failureAttempts = logs.filter((l) => l.status === "failure").length;
   const failureRate = totalAttempts > 0 ? ((failureAttempts / totalAttempts) * 100).toFixed(0) : "0";
 
+  const handleExportLogs = () => {
+    const timestamp = new Date().toISOString();
+    const divider = "===============================================================================";
+    const subDivider = "-------------------------------------------------------------------------------";
+    
+    let text = `${divider}\n`;
+    text += `         AETHERION SOVEREIGN ENGINE - QUANTUM HISTORY SECURITY AUDIT LOG\n`;
+    text += `${divider}\n`;
+    text += `Export Time (UTC): ${timestamp}\n`;
+    text += `Total Log Entries: ${logs.length}\n`;
+    text += `Filtered Entries: ${filteredLogs.length}\n`;
+    text += `Active Search: ${searchTerm ? `"${searchTerm}"` : "None"}\n`;
+    text += `Type Filter: ${typeFilter.toUpperCase()}\n`;
+    text += `Status Filter: ${statusFilter.toUpperCase()}\n`;
+    text += `Cluster Stability Rate: ${(100 - parseFloat(failureRate)).toFixed(0)}%\n`;
+    text += `${divider}\n\n`;
+
+    if (filteredLogs.length === 0) {
+      text += `[NO TELEMETRY LOGS RECORDED OR MATCHING CURRENT FILTER CRITERIA]\n`;
+    } else {
+      filteredLogs.forEach((log, index) => {
+        text += `ENTRY #${String(index + 1).padStart(3, "0")}\n`;
+        text += `Timestamp : ${log.timestamp}\n`;
+        text += `Event Type: ${log.type.toUpperCase()}\n`;
+        text += `Operator  : ${log.user}\n`;
+        text += `Status    : ${log.status.toUpperCase()} (${log.status === "success" ? "GRANTED" : "REJECTED"})\n`;
+        text += `Telemetry : ${log.details}\n`;
+        text += `${subDivider}\n`;
+      });
+    }
+
+    text += `\n${divider}\n`;
+    text += `END OF QUANTUM SECURITY CHRONOLOGY - TRANS_ID: ${Math.random().toString(36).substring(2, 10).toUpperCase()}\n`;
+    text += `SYSTEMS STABLE | ETS STORAGE NOMINAL\n`;
+    text += `${divider}\n`;
+
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `quantum_history_security_audit_logs_${timestamp.replace(/[:.]/g, "-")}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 space-y-5 relative overflow-hidden">
       {/* Decorative pulse element */}
@@ -69,14 +117,24 @@ export default function SecurityAuditLog({ logs, onClearLogs }: SecurityAuditLog
         </div>
 
         {logs.length > 0 && (
-          <button
-            onClick={onClearLogs}
-            className="flex items-center gap-1 px-2.5 py-1 bg-slate-950 hover:bg-red-950/40 hover:text-red-400 hover:border-red-900/50 text-[10px] text-slate-400 font-mono font-bold uppercase rounded border border-slate-850 transition-all cursor-pointer"
-            title="Clear all stored logs"
-          >
-            <Trash2 className="w-3 h-3" />
-            <span>Flush Logs</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportLogs}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-950/30 hover:bg-indigo-900/40 hover:text-indigo-300 hover:border-indigo-800 text-[10px] text-slate-300 font-mono font-bold uppercase rounded border border-slate-800 transition-all cursor-pointer"
+              title="Export current logs as formatted text file"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export History</span>
+            </button>
+            <button
+              onClick={onClearLogs}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-950 hover:bg-red-950/40 hover:text-red-400 hover:border-red-900/50 text-[10px] text-slate-400 font-mono font-bold uppercase rounded border border-slate-850 transition-all cursor-pointer"
+              title="Clear all stored logs"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Flush Logs</span>
+            </button>
+          </div>
         )}
       </div>
 
