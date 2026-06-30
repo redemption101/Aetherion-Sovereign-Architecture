@@ -1,0 +1,6 @@
+{
+  "name": "Aetherion Sovereign Studio",
+  "description": "Interactive workspace, simulator, and compiler dashboard for Aetherion Sovereign Language v3.0, featuring quantum mechanics, cyber defense, earodynamics, and an AI philosophy companion.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

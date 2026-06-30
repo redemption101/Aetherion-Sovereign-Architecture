@@ -1,0 +1,90 @@
+name: Aetherion Sovereign CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-erlang:
+    name: Build & Test Erlang OTP Backend
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Setup Erlang/OTP
+      uses: erlef/setup-beam@v1
+      with:
+        otp-version: '26.2'
+        rebar3-version: '3.22.0'
+
+    - name: Restore rebar3 Cache
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/rebar3
+        key: ${{ runner.os }}-rebar3-${{ hashFiles('rebar.config') }}
+
+    - name: Compile Erlang Code
+      run: rebar3 compile
+
+    - name: Run Erlang Tests (eunit/common_test)
+      run: rebar3 eunit
+
+  build-angular:
+    name: Build & Lint Angular Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js Runtime
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install Frontend Dependencies
+      run: npm ci
+
+    - name: Run Angular Unit Tests
+      run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadless
+
+    - name: Compile Angular Production Assets
+      run: npm run build -- --configuration=production
+
+  deploy-sovereign:
+    name: Deploy to Sovereign Cloud Run Instance
+    needs: [build-erlang, build-angular]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Authenticate Sovereign GCP Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+
+    - name: Build & Publish Container Image
+      run: |
+        gcloud auth configure-docker --quiet
+        docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/aetherion-sovereign-node:latest .
+        docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/aetherion-sovereign-node:latest
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy aetherion-sovereign-node \
+          --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/aetherion-sovereign-node:latest \
+          --platform managed \
+          --region europe-west2 \
+          --allow-unauthenticated \
+          --set-env-vars="GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
