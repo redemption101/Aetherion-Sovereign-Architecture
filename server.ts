@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import dotenv from "dotenv";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type, ThinkingLevel, Modality } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 
 dotenv.config();
@@ -38,6 +38,172 @@ function getGeminiClient(): GoogleGenAI {
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// AI Search Grounding Endpoint (gemini-3.5-flash with googleSearch tool)
+app.post("/api/ai/search-grounding", async (req, res) => {
+  const { prompt } = req.body;
+  if (!prompt) {
+    return res.status(400).json({ error: "Prompt is required." });
+  }
+  try {
+    const client = getGeminiClient();
+    const response = await client.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    const groundingLinks = chunks
+      .filter((c: any) => c.web)
+      .map((c: any) => ({
+        uri: c.web.uri,
+        title: c.web.title
+      }));
+
+    res.json({
+      success: true,
+      text: response.text || "No response generated.",
+      groundingLinks
+    });
+  } catch (err: any) {
+    console.error("Search Grounding API error:", err);
+    res.status(500).json({
+      error: err.message || "An error occurred during search grounding."
+    });
+  }
+});
+
+// AI High Thinking Deep Philosophy Endpoint (gemini-3.1-pro-preview with HIGH thinkingLevel)
+app.post("/api/ai/high-thinking", async (req, res) => {
+  const { prompt } = req.body;
+  if (!prompt) {
+    return res.status(400).json({ error: "Prompt is required." });
+  }
+  try {
+    const client = getGeminiClient();
+    const response = await client.models.generateContent({
+      model: "gemini-3.1-pro-preview",
+      contents: prompt,
+      config: {
+        thinkingConfig: {
+          thinkingLevel: ThinkingLevel.HIGH
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      text: response.text || "No response generated."
+    });
+  } catch (err: any) {
+    console.error("High Thinking API error:", err);
+    res.status(500).json({
+      error: err.message || "An error occurred during high-thinking reasoning."
+    });
+  }
+});
+
+// AI High-Quality Image Generation Endpoint (gemini-3-pro-image with configurable size)
+app.post("/api/ai/generate-image", async (req, res) => {
+  const { prompt, size } = req.body;
+  if (!prompt) {
+    return res.status(400).json({ error: "Prompt is required." });
+  }
+  try {
+    const client = getGeminiClient();
+    const response = await client.models.generateContent({
+      model: "gemini-3-pro-image",
+      contents: {
+        parts: [{ text: prompt }]
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: "1:1",
+          imageSize: size || "1K" // "1K", "2K", "4K"
+        }
+      }
+    });
+
+    let base64Image = "";
+    if (response.candidates?.[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          base64Image = part.inlineData.data;
+          break;
+        }
+      }
+    }
+
+    if (!base64Image) {
+      throw new Error("No image data returned from Gemini Pro Image.");
+    }
+
+    res.json({
+      success: true,
+      imageUrl: `data:image/png;base64,${base64Image}`
+    });
+  } catch (err: any) {
+    console.error("Image Generation API error:", err);
+    res.status(500).json({
+      error: err.message || "An error occurred during image generation."
+    });
+  }
+});
+
+// AI Music Generation Endpoint (lyria-3-clip-preview / lyria-3-pro-preview)
+app.post("/api/ai/generate-music", async (req, res) => {
+  const { prompt, isFullLength } = req.body;
+  if (!prompt) {
+    return res.status(400).json({ error: "Prompt is required." });
+  }
+  try {
+    const client = getGeminiClient();
+    const modelName = isFullLength ? "lyria-3-pro-preview" : "lyria-3-clip-preview";
+    
+    const response = await client.models.generateContentStream({
+      model: modelName,
+      contents: prompt,
+    });
+
+    let audioBase64 = "";
+    let lyrics = "";
+    let mimeType = "audio/wav";
+
+    for await (const chunk of response) {
+      const parts = chunk.candidates?.[0]?.content?.parts;
+      if (!parts) continue;
+      for (const part of parts) {
+        if (part.inlineData?.data) {
+          if (!audioBase64 && part.inlineData.mimeType) {
+            mimeType = part.inlineData.mimeType;
+          }
+          audioBase64 += part.inlineData.data;
+        }
+        if (part.text && !lyrics) {
+          lyrics = part.text;
+        }
+      }
+    }
+
+    if (!audioBase64) {
+      throw new Error("No audio bytes returned from Lyria.");
+    }
+
+    res.json({
+      success: true,
+      audioUrl: `data:${mimeType};base64,${audioBase64}`,
+      lyrics
+    });
+  } catch (err: any) {
+    console.error("Music Generation API error:", err);
+    res.status(500).json({
+      error: err.message || "An error occurred during music generation."
+    });
+  }
 });
 
 // Aetherphi Philosophy & Code Companion Chat
@@ -255,6 +421,131 @@ app.post("/api/aetherion/simulate-heal", (req, res) => {
   ];
 
   res.json({ faultType, steps });
+});
+
+// Aether Stress Report Endpoint using Gemini API
+app.post("/api/aetherion/stress-report", async (req, res) => {
+  const { throughput, throughputHistory } = req.body;
+  
+  if (typeof throughput !== "number" || !Array.isArray(throughputHistory)) {
+    return res.status(400).json({ error: "Invalid throughput or history payload." });
+  }
+
+  try {
+    const client = getGeminiClient();
+
+    const systemInstruction = `You are AetherDiag, the Sovereign Diagnostic and Clustering Intelligence for the Aetherion Programming Language v3.0 on BEAM-X.
+You analyze system metrics and produce highly advanced, predictive stress reports.
+Your tone is deeply technical, authoritative, yet aligned with the sovereign directives of Architect Mandlenkosi Vundla and the Triad: Theodore Swarts, Mrs. Codex, and Sempi Mvala.
+You must use terminology matching Erlang OTP behaviors, supervisors, cold restarts, quantum superposition registers, and Earth-dynamics/Earodynamics.`;
+
+    const prompt = `Analyze the current throughput performance metrics of the Aetherion Sovereign cluster:
+- Current Throughput: ${throughput} GB/s
+- Throughput History (last 6 intervals): ${JSON.stringify(throughputHistory)} GB/s
+
+Please calculate the stress profile of the BEAM-X runtime. Generate a predictive 'Aether Stress Report' suggesting optimization paths for this sovereign cluster.
+Keep the analysis deeply tailored to Erlang OTP actor models, supervisor trees, and the Aetherion language paradigms.`;
+
+    const response = await client.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        systemInstruction,
+        temperature: 0.85,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            stressLevel: {
+              type: Type.NUMBER,
+              description: "Calculated system stress level from 0 to 100",
+            },
+            status: {
+              type: Type.STRING,
+              description: "System health state: 'optimal', 'warning', or 'critical'",
+            },
+            analysis: {
+              type: Type.STRING,
+              description: "A brief 2-3 sentence analysis of current performance based on the throughput trends and sovereign cluster principles.",
+            },
+            predictions: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "2-3 bullet point predictions on how the cluster will respond over the next hour if left unchecked.",
+            },
+            optimizationPaths: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING, description: "Name of the optimization tactic" },
+                  impact: { type: Type.STRING, description: "Tactic impact: 'Low', 'Medium', or 'High'" },
+                  difficulty: { type: Type.STRING, description: "Tactic difficulty: 'Easy', 'Moderate', or 'Complex'" },
+                  steps: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: "Step by step procedures to execute the tactic"
+                  }
+                },
+                required: ["name", "impact", "difficulty", "steps"]
+              },
+              description: "Recommended cluster optimization paths",
+            },
+            verificationSealed: {
+              type: Type.BOOLEAN,
+              description: "Flag indicating whether syntax integrity is cryptographically sealed.",
+            }
+          },
+          required: ["stressLevel", "status", "analysis", "predictions", "optimizationPaths", "verificationSealed"]
+        }
+      }
+    });
+
+    const reportData = JSON.parse(response.text || "{}");
+    res.json({ ...reportData, isSimulated: false });
+  } catch (err: any) {
+    console.warn("Falling back to simulated report due to Gemini API key status:", err.message);
+    
+    // Detailed, premium fallback simulation matching the exact schema
+    const simulatedStressLevel = Math.max(15, Math.min(95, Math.round(throughput * 0.95 + (Math.random() - 0.5) * 15)));
+    const simulatedStatus = simulatedStressLevel > 75 ? "critical" : simulatedStressLevel > 45 ? "warning" : "optimal";
+    
+    const fallbackReport = {
+      stressLevel: simulatedStressLevel,
+      status: simulatedStatus,
+      analysis: `Current processing threshold (${throughput} GB/s) has induced moderate harmonic resonance across BEAM-X processes. High process density is detected in Erlang.Node.Master. The supervisor tree has initiated self-healing diagnostics in anticipation of possible thread contention.`,
+      predictions: [
+        "Failure to scale the actor ring will likely result in an exponential cascade of gen_server:call timeouts within 25 minutes.",
+        "Earodynamics resonance wave degradation may decouple quantum state alignment in the sonic supervisor node."
+      ],
+      optimizationPaths: [
+        {
+          name: "Scale Actor Process Ring Pool",
+          impact: "High",
+          difficulty: "Easy",
+          steps: [
+            "Increase pool size of actor processes from 4 to 12 in sys.config",
+            "Introduce supervisor child specs with dynamic round-robin routing logic",
+            "Hot upgrade Node.Master with zero downtime"
+          ]
+        },
+        {
+          name: "Deploy Quantum Coherence Shield",
+          impact: "Medium",
+          difficulty: "Moderate",
+          steps: [
+            "Inject phase shift correction matrices on active qubit channels",
+            "Enable real-time telemetry lock-down protocols via the Aetherion panel"
+          ]
+        }
+      ],
+      verificationSealed: true,
+      isSimulated: true,
+      hint: "Configure a GEMINI_API_KEY in the Settings > Secrets panel to connect to real-time artificial intelligence."
+    };
+
+    res.json(fallbackReport);
+  }
 });
 
 // -------------------------------------------------------------

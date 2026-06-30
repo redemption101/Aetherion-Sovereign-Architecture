@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { jsPDF } from "jspdf";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -239,6 +240,226 @@ export default function EthicsAuditPanel({ code, compilation }: EthicsAuditPanel
     }, 1200);
   };
 
+  const handleExportPDF = () => {
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+
+    const primaryColor = [15, 23, 42]; // Slate-900: #0f172a
+    const accentColor = [79, 70, 229]; // Indigo-600: #4f46e5
+    const textColor = [51, 65, 85]; // Slate-700
+    const lightBg = [248, 250, 252]; // Slate-50
+
+    // Header Border
+    doc.setDrawColor(79, 70, 229);
+    doc.setLineWidth(1.5);
+    doc.line(15, 15, 195, 15);
+
+    // Document Title
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("AETHERION SOVEREIGN COMPLEX", 15, 25);
+    
+    doc.setFontSize(13);
+    doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+    doc.text("ETHICS & COMPLIANCE AUDIT REPORT", 15, 31);
+
+    // Decorative Separator
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.5);
+    doc.line(15, 36, 195, 36);
+
+    // Report Meta Data
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139); // Slate-500
+    doc.text(`Reference ID: ETH-${Date.now().toString(36).toUpperCase()}`, 15, 42);
+    doc.text(`Audit Date: ${auditTimestamp || new Date().toLocaleString()}`, 15, 47);
+    doc.text("Target Engine: BEAM-X virtual cluster node", 15, 52);
+
+    // Compliance Standing Box
+    doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+    doc.rect(125, 40, 70, 18, "F");
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.3);
+    doc.rect(125, 40, 70, 18, "D");
+    
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+    doc.text("COMPLIANCE RATING", 129, 45);
+    doc.setFontSize(11);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text(auditResult.rating, 129, 51);
+
+    // Overall Score section
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("OVERALL ETHICAL SCORE:", 15, 65);
+    
+    doc.setFontSize(16);
+    doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+    doc.text(`${auditResult.totalScore} / 100 PTS`, 75, 65);
+
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(15, 70, 195, 70);
+
+    // Pillar Scores list
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("FOUR CORES & PILLARS COMPLIANCE STANDINGS", 15, 78);
+
+    let yOffset = 85;
+    auditResult.pillars.forEach((p) => {
+      // Background row block for each pillar
+      doc.setFillColor(251, 252, 254);
+      doc.rect(15, yOffset, 180, 16, "F");
+      doc.setDrawColor(241, 245, 249);
+      doc.rect(15, yOffset, 180, 16, "D");
+
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text(p.name, 19, yOffset + 6);
+      
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139);
+      const wrappedDesc = doc.splitTextToSize(p.description, 130);
+      doc.text(wrappedDesc, 19, yOffset + 11);
+
+      // Score / Status right column
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.text(`${p.score} / ${p.maxScore} pts`, 150, yOffset + 6);
+
+      const statusColor = p.status === "Optimized" || p.status === "Compliant" ? [16, 185, 129] : [245, 158, 11];
+      doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+      doc.setFontSize(8.5);
+      doc.text(p.status.toUpperCase(), 150, yOffset + 11);
+
+      yOffset += 20;
+    });
+
+    yOffset += 2;
+    // Policy Deviations list
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("IDENTIFIED POLICY DEVIATIONS & AMENDMENTS", 15, yOffset);
+    yOffset += 6;
+
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(15, yOffset - 4, 195, yOffset - 4);
+
+    if (auditResult.deviations.length === 0) {
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.setTextColor(16, 185, 129); // emerald
+      doc.text("NO DEVIATIONS ENCOUNTERED. Program achieves complete absolute validation alignment.", 15, yOffset + 2);
+      yOffset += 12;
+    } else {
+      auditResult.deviations.forEach((dev) => {
+        if (yOffset > 270) {
+          doc.addPage();
+          yOffset = 25;
+        }
+
+        doc.setFillColor(254, 252, 251); 
+        doc.rect(15, yOffset, 180, 18, "F");
+        doc.setDrawColor(254, 243, 199);
+        doc.rect(15, yOffset, 180, 18, "D");
+
+        doc.setFont("Helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(180, 83, 9); // amber-700
+        doc.text(`[${dev.id}] ${dev.pillar} - ${dev.severity} RISK`, 19, yOffset + 5);
+
+        doc.setFont("Helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+        
+        const wrappedMsg = doc.splitTextToSize(`Violation: ${dev.message}`, 172);
+        doc.text(wrappedMsg, 19, yOffset + 10);
+
+        const wrappedRemediation = doc.splitTextToSize(`Remediation: ${dev.remediation}`, 172);
+        doc.setFont("Helvetica", "bold");
+        doc.text(wrappedRemediation, 19, yOffset + 14);
+
+        yOffset += 21;
+      });
+    }
+
+    if (yOffset > 240) {
+      doc.addPage();
+      yOffset = 25;
+    }
+
+    // Signatures / Seals footer
+    yOffset += 5;
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(15, yOffset - 3, 195, yOffset - 3);
+
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.text("FORMAL TRINITARIAN CO-FOUNDER DIRECTIVES & APPROVALS", 15, yOffset + 3);
+
+    yOffset += 10;
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+
+    // Signatories columns
+    doc.text("Mandlenkosi Vundla", 15, yOffset);
+    doc.setFont("Helvetica", "bold");
+    doc.text("[Sovereign Architect]", 15, yOffset + 4);
+    doc.setFont("Helvetica", "normal");
+    doc.text("Status: Signed & Certified", 15, yOffset + 8);
+
+    doc.text("Theodore Swarts", 60, yOffset);
+    doc.setFont("Helvetica", "bold");
+    doc.text("[Codification Keeper]", 60, yOffset + 4);
+    doc.setFont("Helvetica", "normal");
+    doc.text("Status: Certified", 60, yOffset + 8);
+
+    doc.text("Mrs. Codex", 105, yOffset);
+    doc.setFont("Helvetica", "bold");
+    doc.text("[Syntax Guardian]", 105, yOffset + 4);
+    doc.setFont("Helvetica", "normal");
+    doc.text("Status: Validated", 105, yOffset + 8);
+
+    doc.text("Sempi Mvala", 150, yOffset);
+    doc.setFont("Helvetica", "bold");
+    doc.text("[Harmony Advisor]", 150, yOffset + 4);
+    doc.setFont("Helvetica", "normal");
+    doc.text("Status: Peace Harmonized", 150, yOffset + 8);
+
+    // Cryptographic Seal
+    yOffset += 15;
+    doc.setDrawColor(241, 245, 249);
+    doc.setFillColor(248, 250, 252);
+    doc.rect(15, yOffset, 180, 10, "F");
+    doc.rect(15, yOffset, 180, 10, "D");
+
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184); // slate-400
+    doc.text("VERIFIED BY THE ETHICAL ASSEMBLY BLOCKCHAIN SEALS UNDER SOVEREIGN SPEC v3.0.", 19, yOffset + 4);
+    doc.text("SHA-256 SECURED VERIFICATION BLOCK: 0xEEA7E8D356A1B24479E39B92EA91C28C8DE15", 19, yOffset + 8);
+
+    doc.save(`Aetherion_Ethics_Audit_Report_${Date.now()}.pdf`);
+  };
+
   useEffect(() => {
     // Auto-update timestamp when a template compiles or code changes
     if (compilation) {
@@ -282,6 +503,16 @@ export default function EthicsAuditPanel({ code, compilation }: EthicsAuditPanel
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            id="export-pdf-audit-btn"
+            onClick={handleExportPDF}
+            className="bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 px-3.5 py-1.5 rounded text-xs font-mono transition-all flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
+            title="Download audit findings as a beautifully-formatted PDF"
+          >
+            <Download className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Export PDF</span>
+          </button>
+
           <button
             onClick={handleTriggerAudit}
             disabled={isAuditing}

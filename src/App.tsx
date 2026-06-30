@@ -27,15 +27,21 @@ import {
   Cpu
 } from "lucide-react";
 import AetherphiChat from "./components/AetherphiChat";
+import AetherionVision from "./components/AetherionVision";
 import QuantumVisualizer from "./components/QuantumVisualizer";
 import QuantumMonitor from "./components/QuantumMonitor";
 import SelfHealingPanel from "./components/SelfHealingPanel";
+import AetherStressPanel from "./components/AetherStressPanel";
 import EthicsAuditPanel from "./components/EthicsAuditPanel";
+import { CODEX_DICTIONARY } from "./data/codexDictionary";
+import SecurityAuditLog, { AuditLogEntry } from "./components/SecurityAuditLog";
+import ClusterTopologyHeatmap from "./components/ClusterTopologyHeatmap";
+import QuantumVarianceTrend from "./components/QuantumVarianceTrend";
 import { CODE_TEMPLATES } from "./templates";
 import { CompilationResult, CodeTemplate } from "./types";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"overview" | "auth" | "compiler" | "earodynamics" | "cicd" | "source">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "auth" | "compiler" | "earodynamics" | "cicd" | "source" | "vision">("vision");
   
   // Real-time Throughput state simulator
   const [throughput, setThroughput] = useState<number>(84.2);
@@ -44,6 +50,32 @@ export default function App() {
   // Auth States (Interactive user store simulated)
   const [authUsers, setAuthUsers] = useState<Array<{ user: string; hash: string; salt: string }>>([
     { user: "admin_node", hash: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", salt: "aX9_s7_pQ2" }
+  ]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([
+    {
+      id: "init_log_1",
+      timestamp: new Date(Date.now() - 14400000).toLocaleTimeString(),
+      type: "registration",
+      user: "admin_node",
+      status: "success",
+      details: "Genesis administrative sovereign node registered. Allocated to isolated BEAM-X ETS table storage."
+    },
+    {
+      id: "init_log_2",
+      timestamp: new Date(Date.now() - 10800000).toLocaleTimeString(),
+      type: "login",
+      user: "admin_node",
+      status: "success",
+      details: "Sovereign SHA-256 hash matching verification succeeded. Session ID alpha_node_77x initiated."
+    },
+    {
+      id: "init_log_3",
+      timestamp: new Date(Date.now() - 7200000).toLocaleTimeString(),
+      type: "login",
+      user: "unknown_agent",
+      status: "failure",
+      details: "Authentication rejected: Username Node not located in the sovereign transient store registry."
+    }
   ]);
   const [regUser, setRegUser] = useState("");
   const [regPass, setRegPass] = useState("");
@@ -59,6 +91,8 @@ export default function App() {
   const [codeContext, setCodeContext] = useState<string>(CODE_TEMPLATES[0].code);
   const [compilation, setCompilation] = useState<CompilationResult | null>(null);
   const [isCompiling, setIsCompiling] = useState(false);
+  const [pulseActive, setPulseActive] = useState(false);
+  const [hoveredTerm, setHoveredTerm] = useState<any>(null);
 
   // Audio / Synth States
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -110,6 +144,11 @@ export default function App() {
       });
       const data = await response.json();
       setCompilation(data);
+      if (data && data.success) {
+        setPulseActive(true);
+      } else {
+        setPulseActive(false);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -122,12 +161,36 @@ export default function App() {
     e.preventDefault();
     setAuthError(null);
     setAuthSuccess(null);
+    const timestamp = new Date().toLocaleTimeString();
+
     if (!regUser || !regPass) {
       setAuthError("Registration fields cannot be blank.");
+      setAuditLogs((prev) => [
+        {
+          id: `reg_fail_${Date.now()}`,
+          timestamp,
+          type: "registration",
+          user: "BLANK_NODE",
+          status: "failure",
+          details: "Attempted registration rejected: Username Node ID or Password Key field blank."
+        },
+        ...prev
+      ]);
       return;
     }
     if (authUsers.some((u) => u.user === regUser)) {
       setAuthError(`User "${regUser}" already exists in Sovereign ets registry.`);
+      setAuditLogs((prev) => [
+        {
+          id: `reg_fail_${Date.now()}`,
+          timestamp,
+          type: "registration",
+          user: regUser,
+          status: "failure",
+          details: `Attempted registration of existing node "${regUser}" rejected. Collision prevention active.`
+        },
+        ...prev
+      ]);
       return;
     }
 
@@ -139,6 +202,19 @@ export default function App() {
       
       setAuthUsers((prev) => [...prev, { user: regUser, hash: generatedHash, salt }]);
       setAuthSuccess(`Secure User "${regUser}" registered in Erlang auth database!`);
+      
+      setAuditLogs((prev) => [
+        {
+          id: `reg_success_${Date.now()}`,
+          timestamp,
+          type: "registration",
+          user: regUser,
+          status: "success",
+          details: `Erlang transient ETS table successfully updated with node ID: "${regUser}". Salt seed: "${salt}".`
+        },
+        ...prev
+      ]);
+
       setRegUser("");
       setRegPass("");
       setIsAuthLoading(false);
@@ -149,16 +225,48 @@ export default function App() {
     e.preventDefault();
     setAuthError(null);
     setAuthSuccess(null);
+    const timestamp = new Date().toLocaleTimeString();
+
+    if (!loginUser) {
+      setAuthError("Registered Username field is blank.");
+      return;
+    }
+
     const existing = authUsers.find((u) => u.user === loginUser);
     if (!existing) {
       setAuthError("User not registered in ets sovereign tables.");
+      setAuditLogs((prev) => [
+        {
+          id: `login_fail_${Date.now()}`,
+          timestamp,
+          type: "login",
+          user: loginUser,
+          status: "failure",
+          details: `Session verification failed: User Node "${loginUser}" not found in current isolated ETS registry.`
+        },
+        ...prev
+      ]);
       return;
     }
 
     setIsAuthLoading(true);
     setTimeout(() => {
-      setCurrentSession(existing.user + "_sess_" + Math.random().toString(36).substring(2, 8));
+      const sessId = existing.user + "_sess_" + Math.random().toString(36).substring(2, 8);
+      setCurrentSession(sessId);
       setAuthSuccess(`Welcome, sovereign agent ${existing.user}. Session Token registered.`);
+      
+      setAuditLogs((prev) => [
+        {
+          id: `login_success_${Date.now()}`,
+          timestamp,
+          type: "login",
+          user: existing.user,
+          status: "success",
+          details: `SHA-256 hash match verified. Session initiated with token ID: "${sessId}".`
+        },
+        ...prev
+      ]);
+
       setLoginUser("");
       setLoginPass("");
       setIsAuthLoading(false);
@@ -365,6 +473,21 @@ jobs:
         </div>
 
         <div className="hidden lg:flex gap-8 items-center">
+          {/* Quantum State Pulse Indicator */}
+          <div className="flex flex-col items-end border border-slate-800 px-3 py-1 bg-slate-900/60 rounded-md">
+            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-mono">Quantum State Pulse</span>
+            <span className={`text-xs font-mono flex items-center gap-1.5 transition-all duration-1000 ${
+              pulseActive ? "text-emerald-400 font-bold" : "text-indigo-400"
+            }`}>
+              <span className={`w-2 h-2 rounded-full transition-all duration-1000 ${
+                pulseActive 
+                  ? "bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)] animate-pulse" 
+                  : "bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.4)]"
+              }`}></span>
+              {pulseActive ? "SYNCHRONIZED" : "STANDBY"}
+            </span>
+          </div>
+
           <div className="flex flex-col items-end">
             <span className="text-[9px] text-slate-500 uppercase tracking-wider font-mono">Sovereignty Protocol</span>
             <span className="text-emerald-400 text-xs font-mono flex items-center gap-1.5">
@@ -393,6 +516,21 @@ jobs:
           <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-2 px-3">
             System Workspace
           </div>
+
+          <button
+            onClick={() => setActiveTab("vision")}
+            className={`w-full text-left px-3.5 py-2.5 rounded transition-all text-xs flex items-center justify-between ${
+              activeTab === "vision"
+                ? "bg-indigo-600/10 border-l-2 border-indigo-500 text-indigo-400 font-medium"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/40"
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+              <span>Sovereign Vision & AI</span>
+            </span>
+            <span className="text-[9px] font-mono bg-indigo-950 px-1.5 py-0.5 rounded border border-indigo-800/40 text-indigo-400">CH 1</span>
+          </button>
           
           <button
             onClick={() => setActiveTab("overview")}
@@ -499,6 +637,18 @@ jobs:
         <div className="flex-1 p-4 lg:p-6 overflow-y-auto space-y-6">
           
           <AnimatePresence mode="wait">
+            {/* TAB 0: SOVEREIGN VISION & AI */}
+            {activeTab === "vision" && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="space-y-6"
+              >
+                <AetherionVision />
+              </motion.div>
+            )}
+
             {/* TAB 1: OVERVIEW */}
             {activeTab === "overview" && (
               <motion.div
@@ -598,6 +748,12 @@ jobs:
 
                 </div>
 
+                {/* D3-Powered Real-time Cluster Topology Heatmap */}
+                <ClusterTopologyHeatmap />
+
+                {/* Historical trend view of quantum variance */}
+                <QuantumVarianceTrend />
+
                 {/* Sub row with Quantum Visualizer and Self Healing control */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <QuantumVisualizer />
@@ -606,6 +762,16 @@ jobs:
 
                 {/* Real-time Quantum State Synchronization Monitor */}
                 <QuantumMonitor />
+
+                {/* AI-Driven Predictive Aether Stress Report Panel */}
+                <AetherStressPanel
+                  throughput={throughput}
+                  throughputHistory={throughputHistory}
+                  onOptimize={() => {
+                    // Stabilize throughput upon optimization tactic deployment
+                    setThroughput(55.4);
+                  }}
+                />
               </motion.div>
             )}
 
@@ -758,6 +924,12 @@ jobs:
                     </table>
                   </div>
                 </div>
+
+                {/* Sovereign Node Registration & Login Security Audit Log */}
+                <SecurityAuditLog
+                  logs={auditLogs}
+                  onClearLogs={() => setAuditLogs([])}
+                />
               </motion.div>
             )}
 
@@ -852,6 +1024,82 @@ jobs:
                         className="w-full h-80 bg-slate-950 text-slate-200 font-mono text-xs p-4 focus:outline-none leading-relaxed resize-none focus:ring-1 focus:ring-indigo-500/50"
                         spellCheck="false"
                       />
+                    </div>
+
+                    {/* Live Lexicon Detector & Hover Inspector */}
+                    <div className="mt-4 border-t border-slate-800/80 pt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] text-indigo-300 font-mono uppercase tracking-wider flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                          Live Codex Keyword Detector ({
+                            CODEX_DICTIONARY.filter(item => 
+                              codeContext.toLowerCase().includes(item.term.toLowerCase())
+                            ).length
+                          } found)
+                        </span>
+                        <span className="text-[9px] text-slate-500 font-mono hidden sm:inline">Hover over keywords to see definitions</span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {CODEX_DICTIONARY.map((item) => {
+                          const isDetected = codeContext.toLowerCase().includes(item.term.toLowerCase());
+                          return (
+                            <button
+                              key={item.term}
+                              onMouseEnter={() => setHoveredTerm(item)}
+                              onMouseLeave={() => setHoveredTerm(null)}
+                              onClick={() => setHoveredTerm(hoveredTerm?.term === item.term ? null : item)}
+                              className={`text-[10px] font-mono px-2 py-1 rounded transition-all border ${
+                                isDetected 
+                                  ? "bg-indigo-600/10 border-indigo-500/60 text-indigo-300 font-bold shadow-[0_0_8px_rgba(99,102,241,0.2)]" 
+                                  : "bg-slate-900/20 border-slate-800/60 text-slate-500 hover:text-slate-400"
+                              }`}
+                            >
+                              {item.term}
+                              {isDetected && <span className="inline-block w-1 h-1 bg-emerald-400 rounded-full ml-1 animate-pulse" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Floating / Active Definition Inspector */}
+                      <AnimatePresence>
+                        {hoveredTerm && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            className="bg-slate-950 border border-indigo-500/30 rounded-lg p-3.5 space-y-2.5 shadow-lg relative overflow-hidden mt-2"
+                          >
+                            <div className="absolute right-3 top-3 opacity-5">
+                              <Terminal className="w-12 h-12 text-indigo-400" />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-white font-mono flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
+                                {hoveredTerm.term}
+                              </span>
+                              <span className={`text-[8px] uppercase tracking-wider font-mono px-2 py-0.5 rounded ${
+                                hoveredTerm.type === "pillar" 
+                                  ? "bg-indigo-950 text-indigo-400 border border-indigo-800/40" 
+                                  : "bg-amber-950 text-amber-400 border border-amber-800/40"
+                              }`}>
+                                {hoveredTerm.type}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] leading-relaxed">
+                              <div className="bg-slate-900/40 p-2.5 rounded border border-slate-800/50">
+                                <span className="text-[8px] uppercase font-bold text-indigo-400 tracking-wider font-mono block mb-1">Philosophical Concept</span>
+                                <p className="text-slate-300 font-sans italic">"{hoveredTerm.philosophicalDef}"</p>
+                              </div>
+                              <div className="bg-slate-900/40 p-2.5 rounded border border-slate-800/50">
+                                <span className="text-[8px] uppercase font-bold text-emerald-400 tracking-wider font-mono block mb-1">Technical Implementation</span>
+                                <p className="text-slate-300 font-mono">{hoveredTerm.technicalDef}</p>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
                     <div className="flex gap-2.5 mt-4">

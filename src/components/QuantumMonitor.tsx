@@ -14,7 +14,8 @@ import {
   Pause,
   Compass,
   Info,
-  Maximize2
+  Maximize2,
+  Download
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -247,6 +248,42 @@ export default function QuantumMonitor() {
     setPhaseShift(0);
   };
 
+  // Triggers an elegant JSON state download of the current quantum metrics
+  const handleExportState = () => {
+    const exportPayload = {
+      system: "Aetherion Sovereign Studio - BEAM-X Quantum Simulation",
+      exportedAt: new Date().toISOString(),
+      activeProcess: {
+        id: selectedProcess.id,
+        name: selectedProcess.name,
+        module: selectedProcess.module,
+        baseVariance: selectedProcess.baseVariance,
+        fluctuation: selectedProcess.fluctuation,
+        coherenceTrend: selectedProcess.coherenceTrend,
+        description: selectedProcess.description
+      },
+      controlState: {
+        phaseShift,
+        noiseLevel,
+        coherenceLock
+      },
+      metrics: {
+        currentVariance,
+        currentCoherence,
+        currentEntropy
+      },
+      historicalData: chartData
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportPayload, null, 2));
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `aetherion_quantum_state_${selectedProcess.id}_${Date.now()}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
   const currentVariance = chartData[chartData.length - 1]?.variance || selectedProcess.baseVariance;
   const currentCoherence = chartData[chartData.length - 1]?.coherence || 85.0;
   const currentEntropy = chartData[chartData.length - 1]?.entropy || 0.45;
@@ -268,24 +305,38 @@ export default function QuantumMonitor() {
           </div>
         </div>
         
-        {/* Play/Pause indicators */}
-        <div className="flex items-center space-x-2 bg-slate-950/80 px-2 py-1 rounded-lg border border-slate-800">
+        {/* Play/Pause & Export Controls */}
+        <div className="flex items-center space-x-2.5">
+          {/* Export State Button */}
           <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            className={`p-1 rounded text-xs transition-colors ${
-              isPlaying ? "text-indigo-400 hover:bg-slate-900" : "text-slate-500 hover:bg-slate-900"
-            }`}
-            title={isPlaying ? "Pause Real-Time Sync" : "Play Real-Time Sync"}
+            id="export-quantum-state-btn"
+            onClick={handleExportState}
+            className="flex items-center gap-1 px-2.5 py-1 bg-indigo-600/95 hover:bg-indigo-600 border border-indigo-500/30 hover:border-indigo-400/50 text-[10px] text-white font-mono font-bold uppercase rounded-lg transition-all shadow-md active:scale-95 cursor-pointer"
+            title="Export current quantum state data as JSON"
           >
-            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            <Download className="w-3.5 h-3.5 text-indigo-200" />
+            <span>Export State</span>
           </button>
-          <span className="h-3 w-px bg-slate-800" />
-          <span className="flex items-center gap-1 text-[9px] font-mono font-semibold uppercase">
-            <span className={`w-1.5 h-1.5 rounded-full ${isPlaying ? "bg-emerald-500 animate-ping" : "bg-slate-600"}`} />
-            <span className={isPlaying ? "text-emerald-400" : "text-slate-500"}>
-              {isPlaying ? "LIVE FEED" : "PAUSED"}
+
+          {/* Play/Pause indicators */}
+          <div className="flex items-center space-x-2 bg-slate-950/80 px-2 py-1 rounded-lg border border-slate-800">
+            <button
+              onClick={() => setIsPlaying(!isPlaying)}
+              className={`p-1 rounded text-xs transition-colors ${
+                isPlaying ? "text-indigo-400 hover:bg-slate-900" : "text-slate-500 hover:bg-slate-900"
+              }`}
+              title={isPlaying ? "Pause Real-Time Sync" : "Play Real-Time Sync"}
+            >
+              {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            </button>
+            <span className="h-3 w-px bg-slate-800" />
+            <span className="flex items-center gap-1 text-[9px] font-mono font-semibold uppercase">
+              <span className={`w-1.5 h-1.5 rounded-full ${isPlaying ? "bg-emerald-500 animate-ping" : "bg-slate-600"}`} />
+              <span className={isPlaying ? "text-emerald-400" : "text-slate-500"}>
+                {isPlaying ? "LIVE FEED" : "PAUSED"}
+              </span>
             </span>
-          </span>
+          </div>
         </div>
       </div>
 
