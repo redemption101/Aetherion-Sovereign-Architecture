@@ -1,0 +1,115 @@
+{
+  "system": "Aetherion Sovereign Studio - BEAM-X Quantum Simulation",
+  "exportedAt": "2026-06-30T06:30:31.798Z",
+  "activeProcess": {
+    "id": "hello_hub",
+    "name": "1. Hello Sovereign Universe",
+    "module": "hello_world_hub.erl",
+    "baseVariance": 0.12,
+    "fluctuation": 0.04,
+    "coherenceTrend": "stable",
+    "description": "Standard sovereign context running a basic quantum circuit greeting superposition."
+  },
+  "controlState": {
+    "phaseShift": 0,
+    "noiseLevel": 0,
+    "coherenceLock": false
+  },
+  "metrics": {
+    "currentVariance": 0.0974,
+    "currentCoherence": 80.5,
+    "currentEntropy": 0.575
+  },
+  "historicalData": [
+    {
+      "time": "08:30:10 AM",
+      "variance": 0.1361,
+      "coherence": 72.8,
+      "entropy": 0.755
+    },
+    {
+      "time": "08:30:12 AM",
+      "variance": 0.1224,
+      "coherence": 75.5,
+      "entropy": 0.696
+    },
+    {
+      "time": "08:30:13 AM",
+      "variance": 0.1326,
+      "coherence": 73.5,
+      "entropy": 0.74
+    },
+    {
+      "time": "08:30:15 AM",
+      "variance": 0.1098,
+      "coherence": 78,
+      "entropy": 0.636
+    },
+    {
+      "time": "08:30:16 AM",
+      "variance": 0.1362,
+      "coherence": 72.8,
+      "entropy": 0.755
+    },
+    {
+      "time": "08:30:18 AM",
+      "variance": 0.0973,
+      "coherence": 80.5,
+      "entropy": 0.574
+    },
+    {
+      "time": "08:30:19 AM",
+      "variance": 0.101,
+      "coherence": 79.8,
+      "entropy": 0.593
+    },
+    {
+      "time": "08:30:21 AM",
+      "variance": 0.1275,
+      "coherence": 74.5,
+      "entropy": 0.718
+    },
+    {
+      "time": "08:30:22 AM",
+      "variance": 0.1388,
+      "coherence": 72.2,
+      "entropy": 0.766
+    },
+    {
+      "time": "08:30:24 AM",
+      "variance": 0.0984,
+      "coherence": 80.3,
+      "entropy": 0.58
+    },
+    {
+      "time": "08:30:25 AM",
+      "variance": 0.1252,
+      "coherence": 75,
+      "entropy": 0.708
+    },
+    {
+      "time": "08:30:27 AM",
+      "variance": 0.1134,
+      "coherence": 77.3,
+      "entropy": 0.654
+    },
+    {
+      "time": "08:30:28 AM",
+      "variance": 0.1104,
+      "coherence": 77.9,
+      "entropy": 0.64
+    },
+    {
+      "time": "08:30:30 AM",
+      "variance": 0.1215,
+      "coherence": 75.7,
+      "entropy": 0.692
+    },
+    {
+      "time": "08:30:31 AM",
+      "variance": 0.0974,
+      "coherence": 80.5,
+      "entropy": 0.575
+    }
+  ]
+}
